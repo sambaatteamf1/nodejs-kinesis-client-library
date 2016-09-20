@@ -3,7 +3,7 @@ import {Worker, fork, setupMaster} from 'cluster'
 import {join} from 'path'
 import {format as formatUrl} from 'url'
 
-import {difference, pluck, without} from 'underscore'
+import {difference, pluck, without, map} from 'underscore'
 import {auto, parallel, each, forever} from 'async'
 import {ClientConfig, Kinesis} from 'aws-sdk'
 import {Logger, createLogger} from 'bunyan'
@@ -251,7 +251,7 @@ export class ConsumerCluster extends EventEmitter {
   // Fetch data about unleased shards.
   private fetchAvailableShard() {
     // Hack around typescript
-    var _asyncResults = <{ allShardIds: string[]; leases: Queries.Query.Result; }>{}
+    var _asyncResults = <{ allShardIds: {ShardId: string, ParentShardId : string, AdjacentParentShardId : string} []; leases: Queries.Query.Result; }>{}
 
     parallel({
       allShardIds: done => {
@@ -260,8 +260,15 @@ export class ConsumerCluster extends EventEmitter {
             return done(err)
           }
 
-          const shardIds = pluck(shards, 'ShardId')
-          _asyncResults.allShardIds = shardIds
+          _asyncResults.allShardIds = map(shards, function(shard){
+            let shardInfo = {
+              ShardId : shard.ShardId,
+              ParentShardId : shard.ParentShardId,
+              AdjacentParentShardId : shard.AdjacentParentShardId
+            }
+            return shardInfo
+          })
+
           done()
         })
       },
@@ -292,14 +299,35 @@ export class ConsumerCluster extends EventEmitter {
         return <string>lease.get('id')
       })
 
-      const allUnfinishedShardIds = allShardIds.filter(id => {
-        return finishedShardIds.indexOf(id) === -1
+      const allUnfinishedShardIds = allShardIds.filter(shardInfo => {
+        return finishedShardIds.indexOf(shardInfo.ShardId) === -1
       })
 
-      const leasedShardIds = leaseItems.map(item => {
+      const leasedShardIds : Array<string> = leaseItems.map(item => {
         return item.get('id')
       })
-      const newShardIds = difference(allUnfinishedShardIds, leasedShardIds)
+
+      let newShardIds = []
+      const newShardList = allUnfinishedShardIds.filter(shardInfo => {
+
+        // skip already leased shards
+        if (leasedShardIds.indexOf(shardInfo.ShardId) >= 0) {
+          return false
+        }
+
+        // skip if parent shard is not finished (split case)
+        if (shardInfo.ParentShardId && !(finishedShardIds.indexOf(shardInfo.ParentShardId) >= 0)) {
+          return false
+        }
+
+        // skip if adjacent parent shard is not finished (merge case)
+        if (shardInfo.AdjacentParentShardId && !(finishedShardIds.indexOf(shardInfo.AdjacentParentShardId) >= 0)) {
+          return false
+        }
+
+        newShardIds.push(shardInfo)
+        return true
+      })
 
       // If there are shards theat have not been leased, pick one
       if (newShardIds.length > 0) {
