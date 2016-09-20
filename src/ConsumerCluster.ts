@@ -317,11 +317,15 @@ export class ConsumerCluster extends EventEmitter {
 
         // skip if parent shard is not finished (split case)
         if (shardInfo.ParentShardId && !(finishedShardIds.indexOf(shardInfo.ParentShardId) >= 0)) {
+          this.logger.info({ ParentShardId: shardInfo.ParentShardId, ShardId :  shardInfo.ShardId}, 
+                            'Ignoring shard because ParentShardId is not finished')
           return false
         }
 
         // skip if adjacent parent shard is not finished (merge case)
         if (shardInfo.AdjacentParentShardId && !(finishedShardIds.indexOf(shardInfo.AdjacentParentShardId) >= 0)) {
+          this.logger.info({ AdjacentParentShardId: shardInfo.AdjacentParentShardId, ShardId :  shardInfo.ShardId}, 
+                            'Ignoring shard because AdjacentParentShardId is not finished')
           return false
         }
 
