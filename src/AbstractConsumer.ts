@@ -350,11 +350,11 @@ export class AbstractConsumer {
     const opts = JSON.parse(process.env.CONSUMER_INSTANCE_OPTS)
     class Consumer extends AbstractConsumer {
       constructor() {
-        super(opts)
 
         AbstractConsumer.ABSTRACT_METHODS
           .filter(method => args[method])
           .forEach(method => this[method] = args[method])
+        super(opts)
       }
     }
 

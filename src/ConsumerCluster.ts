@@ -3,7 +3,7 @@ import {Worker, fork, setupMaster} from 'cluster'
 import {join} from 'path'
 import {format as formatUrl} from 'url'
 
-import {difference, pluck, without, map} from 'underscore'
+import {without, map} from 'underscore'
 import {auto, parallel, each, forever} from 'async'
 import {ClientConfig, Kinesis} from 'aws-sdk'
 import {Logger, createLogger} from 'bunyan'
@@ -308,7 +308,7 @@ export class ConsumerCluster extends EventEmitter {
       })
 
       let newShardIds = []
-      const newShardList = allUnfinishedShardIds.filter(shardInfo => {
+      allUnfinishedShardIds.filter(shardInfo => {
 
         // skip already leased shards
         if (leasedShardIds.indexOf(shardInfo.ShardId) >= 0) {
@@ -317,19 +317,19 @@ export class ConsumerCluster extends EventEmitter {
 
         // skip if parent shard is not finished (split case)
         if (shardInfo.ParentShardId && !(finishedShardIds.indexOf(shardInfo.ParentShardId) >= 0)) {
-          this.logger.info({ ParentShardId: shardInfo.ParentShardId, ShardId :  shardInfo.ShardId}, 
+          this.logger.info({ ParentShardId: shardInfo.ParentShardId, ShardId :  shardInfo.ShardId},
                             'Ignoring shard because ParentShardId is not finished')
           return false
         }
 
         // skip if adjacent parent shard is not finished (merge case)
         if (shardInfo.AdjacentParentShardId && !(finishedShardIds.indexOf(shardInfo.AdjacentParentShardId) >= 0)) {
-          this.logger.info({ AdjacentParentShardId: shardInfo.AdjacentParentShardId, ShardId :  shardInfo.ShardId}, 
+          this.logger.info({ AdjacentParentShardId: shardInfo.AdjacentParentShardId, ShardId :  shardInfo.ShardId},
                             'Ignoring shard because AdjacentParentShardId is not finished')
           return false
         }
 
-        newShardIds.push(shardInfo)
+        newShardIds.push(shardInfo.ShardId)
         return true
       })
 
