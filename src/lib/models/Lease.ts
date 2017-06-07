@@ -27,6 +27,7 @@ export class Lease {
   public shardId: string
   public expectedLeaseCounter: number
   private checkpointedSequence: string
+  private expiresAt: string
   private static DB_TYPE = 'lease'
 
   constructor(shardId: string, counter: number, table: string, conf: ClientConfig, dynamoEndpoint: string) {
@@ -67,6 +68,30 @@ export class Lease {
     this.Lease.update(atts, expected, (err, record) => {
       if (!err) {
         this.checkpointedSequence = record.get('checkpointedSequence')
+        this.expiresAt = record.get("expiresAt")
+      }
+
+      callback(err)
+    })
+  }
+
+  private _checkpoint(properties: Object, callback: (err: any) => void) {
+
+    const atts = extend({
+      type: Lease.DB_TYPE,
+      id: this.shardId,
+    }, properties)
+
+    this.Lease.update(atts, (err, record) => {
+
+      if (!err) {
+        this.checkpointedSequence = record.get('checkpointedSequence')
+        this.expiresAt = record.get("expiresAt")
+
+        const leaseTimeLeftInMs = Number(this.expiresAt) - Date.now()
+        if (leaseTimeLeftInMs < (2 * 1000)) {
+          err = "LeaseNotRenewedErr"
+        }
       }
 
       callback(err)
@@ -83,7 +108,7 @@ export class Lease {
       return process.nextTick(callback)
     }
 
-    this.update({ checkpointedSequence: checkpointedSequence }, callback)
+    this._checkpoint({ checkpointedSequence: checkpointedSequence }, callback)
   }
 
   public markFinished(callback: (err: any) => void) {
