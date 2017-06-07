@@ -68,7 +68,7 @@ export class Lease {
     this.Lease.update(atts, expected, (err, record) => {
       if (!err) {
         this.checkpointedSequence = record.get('checkpointedSequence')
-        this.expiresAt = record.get("expiresAt")
+        this.expiresAt = record.get('expiresAt')
       }
 
       callback(err)
@@ -86,11 +86,11 @@ export class Lease {
 
       if (!err) {
         this.checkpointedSequence = record.get('checkpointedSequence')
-        this.expiresAt = record.get("expiresAt")
+        this.expiresAt = record.get('expiresAt')
 
         const leaseTimeLeftInMs = Number(this.expiresAt) - Date.now()
         if (leaseTimeLeftInMs < (2 * 1000)) {
-          err = "LeaseNotRenewedErr"
+          err = 'LeaseNotRenewedErr'
         }
       }
 
